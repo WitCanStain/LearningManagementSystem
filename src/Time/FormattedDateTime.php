@@ -1,26 +1,24 @@
 <?php declare(strict_types=1);
 
 namespace App\Time;
-use DateTime;
+use DateTimeImmutable;
 use DateTimeZone;
+use App\Time\TimeConfig;
 
-class FormattedDateTime extends DateTime  {
+class FormattedDateTime extends DateTimeImmutable  {
     
-    private const DATEFORMAT = "d/m/Y H:i:s.u";
-    private const DEFAULT_TIMEZONE = "UTC";
-
-    public static function getDayStartTimeFromDayMonthYearString(string $dayMonthYearString): DateTime {
-        $startDate = DateTime::createFromFormat(self::DATEFORMAT, "{$dayMonthYearString} 00:00:00.000", new DateTimeZone(self::DEFAULT_TIMEZONE));
+    public static function getDayStartTimeFromDayMonthYearString(string $dayMonthYearString): DateTimeImmutable {
+        $startDate = DateTimeImmutable::createFromFormat(TimeConfig::DATEFORMAT, "{$dayMonthYearString} 00:00:00.000", new DateTimeZone(TimeConfig::DEFAULT_TIMEZONE));
         return $startDate;
     }
 
-    public static function getDayEndTimeFromDayMonthYearString(string $dayMonthYearString): DateTime {
-        $endDate = DateTime::createFromFormat(self::DATEFORMAT, "{$dayMonthYearString} 23:59:59.999", new DateTimeZone(self::DEFAULT_TIMEZONE));
+    public static function getDayEndTimeFromDayMonthYearString(string $dayMonthYearString): DateTimeImmutable {
+        $endDate = DateTimeImmutable::createFromFormat(TimeConfig::DATEFORMAT, "{$dayMonthYearString} 23:59:59.999", new DateTimeZone(TimeConfig::DEFAULT_TIMEZONE));
         return $endDate;
     }
 
-    public static function getDateFromDateTimeString(string $dateTimeString): DateTime {
-        $startDate = DateTime::createFromFormat(self::DATEFORMAT, $dateTimeString, new DateTimeZone(self::DEFAULT_TIMEZONE));
+    public static function getDateFromDateTimeString(string $dateTimeString): DateTimeImmutable {
+        $startDate = DateTimeImmutable::createFromFormat(TimeConfig::DATEFORMAT, $dateTimeString, new DateTimeZone(TimeConfig::DEFAULT_TIMEZONE));
         return $startDate;
     }
     

@@ -1,16 +1,18 @@
 <?php declare(strict_types=1);
 namespace App\Course;
-use DateTime;
+use App\TimedContent;
+use App\Time\Clock;
+use DateTimeImmutable;
 
-class Lesson {
+class Lesson extends TimedContent {
     private string $title;
     private string $content;
-    private DateTime $startDateTime;
 
-    function __construct(string $title, string $content, DateTime $startDateTime) {
+    function __construct(string $title, string $content, DateTimeImmutable $startDate, Clock $clock) {
+        parent::__construct($startDate, null, $clock);
         $this->title = $title;
         $this->content = $content;
-        $this->startDateTime = $startDateTime;
+        $this->startDate = $startDate;
     }
 
     public function getTitle(): string {
@@ -19,10 +21,6 @@ class Lesson {
 
     public function getContent(): string {
         return $this->content;
-    }
-
-    public function getStartDate(): DateTime {
-        return $this->startDateTime;
     }
     
 }

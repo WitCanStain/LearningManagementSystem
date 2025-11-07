@@ -1,22 +1,20 @@
 <?php declare(strict_types=1);
 namespace App\Course;
-use DateTime;
+use App\TimedContent;
+use App\Time\Clock;
+use DateTimeImmutable;
 
-class Homework {
+class Homework extends TimedContent{
     private string $title;
-    private DateTime $dueDate;
 
-    function __construct(string $title, DateTime $dueDate) {
+    function __construct(string $title, DateTimeImmutable $endDate, Clock $clock) {
+        parent::__construct(null, $endDate, $clock);
         $this->title = $title;
-        $this->dueDate = $dueDate;
+        $this->endDate = $endDate;
     }
 
     public function getTitle(): string {
         return $this->title;
-    }
-
-    public function getDueDate(): DateTime {
-        return $this->dueDate;
     }
     
 }

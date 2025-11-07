@@ -3,14 +3,12 @@
 namespace App\Time;
 
 use DateTimeImmutable;
-use DateInterval;
-use DateTimeZone;
 
 class FakeClock implements Clock {
     private DateTimeImmutable $currentTime;
 
-    public function __construct(string $timeString) {
-        $this->currentTime = new DateTimeImmutable($timeString, new DateTimeZone("UTC"));
+    public function __construct(DateTimeImmutable $currentTime) {
+        $this->currentTime = $currentTime; // DateTimeImmutable::createFromFormat(TimeConfig::DATEFORMAT, $timeString, new DateTimeZone(TimeConfig::DEFAULT_TIMEZONE));
     }
 
     public function now(): DateTimeImmutable {

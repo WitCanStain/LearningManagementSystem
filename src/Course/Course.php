@@ -2,7 +2,6 @@
 
 namespace App\Course;
 use App\Access\Enrolment;
-use App\Time\FormattedDateTime;
 use App\Time\Clock;
 use App\Course\PrepMaterial;
 use App\Course\Lesson;
@@ -11,20 +10,19 @@ use App\Course\Exception\ContentDoesNotExistException;
 use App\Course\Exception\InvalidAccessTimeException;
 use App\Course\Exception\EnrollmentException;
 use App\Course\Exception\ConstructorException;
-use DateTime;
+use DateTimeImmutable;
+use App\TimedContent;
 
-class Course {
+class Course extends TimedContent{
     private string $name;
-    private DateTime $startDate;
-    private DateTime $endDate;
-    private Clock $clock;
     private array $enrolments = [];
     private array $prepMaterials = [];
     private array $lessons = [];
     private array $homeworks = [];
 
 
-    function __construct(string $name, array $lessons, array $homeworks, array $prepMaterials, string $startDateString, ?string $endDateString, Clock $clock) {
+    function __construct(string $name, array $lessons, array $homeworks, ?array $prepMaterials, DateTimeImmutable $startDate, ?DateTimeImmutable $endDate, Clock $clock) {
+        parent::__construct($startDate, $endDate, $clock);
         if (!$lessons) {
             throw new ConstructorException("Course requires at least one lesson.");
         }
@@ -37,14 +35,13 @@ class Course {
         foreach ($homeworks as $homework) {
             $this->homeworks[$homework->getTitle()] = $homework;
         }
-        foreach ($prepMaterials as $prepMaterial) {
-            $this->prepMaterials[$prepMaterial->getTitle()] = $prepMaterial;
+        if ($prepMaterials) {
+            foreach ($prepMaterials as $prepMaterial) {
+                $this->prepMaterials[$prepMaterial->getTitle()] = $prepMaterial;
+            }
         }
-
-        $this->startDate = FormattedDateTime::getDayStartTimeFromDayMonthYearString($startDateString);
-        if ($endDateString) $this->endDate = FormattedDateTime::getDayEndTimeFromDayMonthYearString($endDateString);
+            
         $this->name = $name;
-        $this->clock = $clock;
     }
 
     public function enroll(Enrolment $enrolment): void {
@@ -52,9 +49,8 @@ class Course {
         $studentIsCurrentlyEnrolled = $this->studentIsCurrentlyEnrolled($studentId);
         if ($studentIsCurrentlyEnrolled) {
             throw new EnrollmentException("Student is already enrolled in course.");
-        } else {
-            $this->enrolments[$studentId] = $enrolment;
         }
+        $this->enrolments[$studentId] = $enrolment;
     }
 
     public function getPrepMaterialForStudent(int $studentId, string $prepMaterialTitle): PrepMaterial {
@@ -80,9 +76,7 @@ class Course {
             throw new ContentDoesNotExistException("Lesson does not exist in course.");
         }
         $lesson = $this->lessons[$lessonTitle];
-        $now = $this->clock->now();
-        $nowIsPastLessonStartTime = $now >= $lesson->getStartDate();
-        if (!$nowIsPastLessonStartTime) {
+        if (!$lesson->isActive()) {
             throw new InvalidAccessTimeException("Cannot access lesson before its due start time.");
         }
         return $lesson;
@@ -92,8 +86,7 @@ class Course {
         if (!$this->studentIsCurrentlyEnrolled($studentId)) {
             throw new EnrollmentException("Student is not currently enrolled.");
         }
-        $now = $this->clock->now();
-        if ($now < $this->startDate) {
+        if (!$this->isActive()) {
             throw new InvalidAccessTimeException("Cannot access homework before course has started.");
         }
         if (!(array_key_exists($homeworkTitle, $this->homeworks))) {
@@ -106,8 +99,7 @@ class Course {
         $studentIsCurrentlyEnrolled = array_key_exists($studentId, $this->enrolments);
         if ($studentIsCurrentlyEnrolled) {
             $studentEnrolment = $this->enrolments[$studentId];
-            $now = $this->clock->now();
-            $enrollmentPeriodIsActive = ($studentEnrolment->getStartDate() <= $now) && ($studentEnrolment->getEndDate() >= $now);
+            $enrollmentPeriodIsActive = $studentEnrolment->isActive();
             if ($enrollmentPeriodIsActive) {
                 return true;
             }
@@ -118,12 +110,5 @@ class Course {
     public function getEnrolments(): array {
         return $this->enrolments;
     }
-
-    public function getStartDate(): DateTime {
-        return $this->startDate;
-    }
-
-    public function getEndDate(): DateTime {
-        return $this->endDate;
-    }
+    
 }

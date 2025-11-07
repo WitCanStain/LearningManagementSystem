@@ -31,10 +31,8 @@ final class CourseTest extends TestCase {
 
 
     protected function setUp(): void {
-        
-        $courseStartDate = "13/05/2025";
-        $courseEndDate = "12/06/2025";
-        $this->clock = new FakeClock("2025-05-01 00:00:00");
+        $clockDate = FormattedDateTime::getDateFromDateTimeString("01/05/2025 00:00:00.000");
+        $this->clock = new FakeClock($clockDate);
 
         $prepMaterialContent = "The mitochondria is the powerhouse of the cell";
         $this->prepMaterial = new PrepMaterial($this->prepMaterialName, $prepMaterialContent);
@@ -42,20 +40,25 @@ final class CourseTest extends TestCase {
 
         $lessonStartDateTimeString = "15/05/2025 10:00:00.000";
         $lessonStartDate = FormattedDateTime::getDateFromDateTimeString($lessonStartDateTimeString);
-        $this->lesson = new Lesson($this->lessonTitle, $this->lessonContent, $lessonStartDate);
+        $this->lesson = new Lesson($this->lessonTitle, $this->lessonContent, $lessonStartDate, $this->clock);
         $lessons = array($this->lesson);
         
         $homeworkDueDateString = "17/05/2025";
         $homeworkDueDate = FormattedDateTime::getDayEndTimeFromDayMonthYearString($homeworkDueDateString);
-        $this->homework = new Homework($this->homeworkTitle, $homeworkDueDate);
+        $this->homework = new Homework($this->homeworkTitle, $homeworkDueDate, $this->clock);
         $homeworks = array($this->homework);
 
+        $courseStartDateString = "13/05/2025";
+        $courseEndDateString = "12/06/2025";
+        $courseStartDate = FormattedDateTime::getDayStartTimeFromDayMonthYearString($courseStartDateString);
+        $courseEndDate = FormattedDateTime::getDayEndTimeFromDayMonthYearString($courseEndDateString);
         $this->course = new Course($this->courseName, $lessons, $homeworks, $prepMaterials, $courseStartDate, $courseEndDate, $this->clock);
-        $enrolmentStartDate = "01/05/2025";
-        $enrolmentEndDate = "30/05/2025";
-
+        $enrolmentStartDateString = "01/05/2025";
+        $enrolmentEndDateString = "30/05/2025";
+        $enrolmentStartDate = FormattedDateTime::getDayStartTimeFromDayMonthYearString($enrolmentStartDateString);
+        $enrolmentEndDate = FormattedDateTime::getDayEndTimeFromDayMonthYearString($enrolmentEndDateString);
         $studentId = 123;
-        $this->enrolment = new Enrolment($studentId, $enrolmentStartDate, $enrolmentEndDate);
+        $this->enrolment = new Enrolment($studentId, $enrolmentStartDate, $enrolmentEndDate, $this->clock);
 
         $this->student = new Student($studentId, $this->studentName);
 
@@ -83,10 +86,15 @@ final class CourseTest extends TestCase {
         $this->course->enroll($this->enrolment);
     }
 
+    
+
     public function testCreatingACourseWithoutEndDateCreatesInstance(): void {
-        $startDate = "13/05/2025";
-        $clock = new FakeClock("2025-05-01 00:00:00");
-        $courseWithoutEndDate = new Course($this->courseName, array($this->lesson), array($this->homework), array(), $startDate, null, $clock);
+        $courseStartDateTimeString = "01/05/2025 00:00:00.000";
+        $courseStartDate = FormattedDateTime::getDateFromDateTimeString($courseStartDateTimeString);
+        $clock = new FakeClock($courseStartDate);
+        $courseStartDateString = "13/05/2025";
+        $courseStartDate = FormattedDateTime::getDayStartTimeFromDayMonthYearString($courseStartDateString);
+        $courseWithoutEndDate = new Course($this->courseName, array($this->lesson), array($this->homework), array(), $courseStartDate, null, $clock);
 
         $this->assertTrue($courseWithoutEndDate instanceof Course);
     }
@@ -101,18 +109,25 @@ final class CourseTest extends TestCase {
 
     }
 
-    public function testStudentCannotAccessPrepMaterialWhenNotEnrolled(): void {
+    public function testStudentCannotAccessPrepMaterialAfterCourseEnd(): void {
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("13/06/2025 00:00:00.000"));
+
         $this->expectException(EnrollmentException::class);
 
+        $this->course->enroll($this->enrolment);
         $prepMaterial = $this->course->getPrepMaterialForStudent($this->student->getId(), $this->prepMaterialName); 
+
+        $this->assertNull($prepMaterial);
+
     }
 
     public function testStudentCanAccessPrepMaterialAfterCourseStart(): void {
-        
-        $enrolmentStartDate = "01/05/2025";
-        $enrolmentEndDate = "30/05/2025";
-        $enrolment = new Enrolment($this->student->getId(), $enrolmentStartDate, $enrolmentEndDate);
-        $this->clock->setTime(new DateTimeImmutable('2025-05-13 00:00:00 UTC'));
+        $enrolmentStartDateString = "01/05/2025";
+        $enrolmentEndDateString = "30/05/2025";
+        $enrolmentStartDate = FormattedDateTime::getDayStartTimeFromDayMonthYearString($enrolmentStartDateString);
+        $enrolmentEndDate = FormattedDateTime::getDayEndTimeFromDayMonthYearString($enrolmentEndDateString);
+        $enrolment = new Enrolment($this->student->getId(), $enrolmentStartDate, $enrolmentEndDate, $this->clock);
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("13/05/2025 00:00:00.000"));
         $this->course->enroll($enrolment);
         $prepMaterial = $this->course->getPrepMaterialForStudent($this->student->getId(), $this->prepMaterialName);
 
@@ -120,15 +135,26 @@ final class CourseTest extends TestCase {
         $this->assertSame($this->prepMaterial->getContent(), $prepMaterial->getContent());
     }
 
+    public function testStudentCannotAccessPrepMaterialWhenNotEnrolled(): void {
+        $this->expectException(EnrollmentException::class);
+
+        $prepMaterial = $this->course->getPrepMaterialForStudent($this->student->getId(), $this->prepMaterialName); 
+    }
+
     public function testStudentCanAccessLessonAfterLessonStart(): void {
        
-        $afterLessonStartclock = new FakeClock("2025-05-15 10:01:00");
-        $courseStartDate = "13/05/2025";
-        $courseEndDate = "12/06/2025";
-        $course = new Course($this->courseName, array($this->lesson), array($this->homework), array($this->prepMaterial), $courseStartDate, $courseEndDate, $afterLessonStartclock);
-        $enrolmentStartDate = "13/05/2025";
-        $enrolmentEndDate = "30/05/2025";
-        $enrolment = new Enrolment($this->student->getId(), $enrolmentStartDate, $enrolmentEndDate);
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("15/05/2025 10:01:00.000"));
+        $courseStartDateString = "13/05/2025";
+        $courseEndDateString = "12/06/2025";
+        $courseStartDate = FormattedDateTime::getDayStartTimeFromDayMonthYearString($courseStartDateString);
+        $courseEndDate = FormattedDateTime::getDayEndTimeFromDayMonthYearString($courseEndDateString);
+        $course = new Course($this->courseName, array($this->lesson), array($this->homework), array($this->prepMaterial), $courseStartDate, $courseEndDate, $this->clock);
+        $enrolmentStartDateString = "13/05/2025";
+        $enrolmentEndDateString = "30/05/2025";
+        $enrolmentStartDate = FormattedDateTime::getDayStartTimeFromDayMonthYearString($enrolmentStartDateString);
+        $enrolmentEndDate = FormattedDateTime::getDayEndTimeFromDayMonthYearString($enrolmentEndDateString);
+        
+        $enrolment = new Enrolment($this->student->getId(), $enrolmentStartDate, $enrolmentEndDate, $this->clock);
         $course->enroll($enrolment);
         $lesson = $course->getLessonForStudent($this->student->getId(), $this->lessonTitle);
         
@@ -137,10 +163,12 @@ final class CourseTest extends TestCase {
 
     public function testStudentCannotAccessLessonBeforeLessonStart(): void {
         $this->expectException(InvalidAccessTimeException::class);
-        $enrolmentStartDate = "13/05/2025";
-        $enrolmentEndDate = "30/05/2025";
-        $enrolment = new Enrolment($this->student->getId(), $enrolmentStartDate, $enrolmentEndDate);
-        $this->clock->setTime(new DateTimeImmutable('2025-05-13 00:00:00 UTC'));
+        $enrolmentStartDateString = "13/05/2025";
+        $enrolmentEndDateString = "30/05/2025";
+        $enrolmentStartDate = FormattedDateTime::getDayStartTimeFromDayMonthYearString($enrolmentStartDateString);
+        $enrolmentEndDate = FormattedDateTime::getDayEndTimeFromDayMonthYearString($enrolmentEndDateString);
+        $enrolment = new Enrolment($this->student->getId(), $enrolmentStartDate, $enrolmentEndDate, $this->clock);
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("13/05/2025 00:00:00.000"));
         $this->course->enroll($enrolment);
         $lesson = $this->course->getLessonForStudent($this->student->getId(), $this->lessonTitle);
     }
@@ -155,44 +183,45 @@ final class CourseTest extends TestCase {
 
     }
 
-    public function testStudentCannotAccessHomeworkWhenNotEnrolled(): void {
-        $this->expectException(EnrollmentException::class);
-
-        $homework = $this->course->getHomeworkForStudent($this->student->getId(), $this->homeworkTitle); 
-    }
-
     public function testStudentCanAccessHomeworkAfterCourseStart(): void {
-        
-        $enrolmentStartDate = "13/05/2025";
-        $enrolmentEndDate = "30/05/2025";
-        $enrolment = new Enrolment($this->student->getId(), $enrolmentStartDate, $enrolmentEndDate);
+        $enrolmentStartDateString = "13/05/2025";
+        $enrolmentEndDateString = "30/05/2025";
+        $enrolmentStartDate = FormattedDateTime::getDayStartTimeFromDayMonthYearString($enrolmentStartDateString);
+        $enrolmentEndDate = FormattedDateTime::getDayEndTimeFromDayMonthYearString($enrolmentEndDateString);
+        $enrolment = new Enrolment($this->student->getId(), $enrolmentStartDate, $enrolmentEndDate, $this->clock);
         $this->course->enroll($enrolment);
-        $this->clock->setTime(new DateTimeImmutable('2025-05-13 00:00:00 UTC'));
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("13/05/2025 00:00:00.000"));
         $homework = $this->course->getHomeworkForStudent($this->student->getId(), $this->homeworkTitle);
 
         $this->assertNotNull($homework);
         $this->assertSame($this->homeworkTitle, $homework->getTitle());
     }
 
+    public function testStudentCannotAccessHomeworkWhenNotEnrolled(): void {
+        $this->expectException(EnrollmentException::class);
+
+        $homework = $this->course->getHomeworkForStudent($this->student->getId(), $this->homeworkTitle); 
+    }
+
     public function testStudentCannotAccessHomeworkAfterEnrolmentEnded(): void {
         $this->course->enroll($this->enrolment);
-        $this->clock->setTime(new DateTimeImmutable('2025-05-13 00:00:00 UTC'));
-        $newEnrolmentEndDate = "20/05/2025";
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("13/05/2025 00:00:00.000"));
+        $newEnrolmentEndDateString = "20/05/2025";
         $homeworkBeforeEnrolmentChange = $this->course->getHomeworkForStudent($this->student->getId(), $this->homeworkTitle);
         $this->assertNotNull($homeworkBeforeEnrolmentChange);
-        $this->enrolment->setEndDate($newEnrolmentEndDate);
+        $this->enrolment->setEndDate(FormattedDateTime::getDayStartTimeFromDayMonthYearString($newEnrolmentEndDateString));
 
-        $this->clock->setTime(new DateTimeImmutable('2025-05-21 00:00:00 UTC'));
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("21/05/2025 00:00:00.000"));
         $this->expectException(EnrollmentException::class);
         $homeworkAfterEnrolmentChange = $this->course->getHomeworkForStudent($this->student->getId(), $this->homeworkTitle);
         $this->assertNull($homeworkAfterEnrolmentChange);
 
-        $this->clock->setTime(new DateTimeImmutable('2025-05-30 00:00:00 UTC'));
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("30/05/2025 00:00:00.000"));
         $this->expectException(EnrollmentException::class);
         $homeworkAfterEnrolmentChange = $this->course->getHomeworkForStudent($this->student->getId(), $this->homeworkTitle);
         $this->assertNull($homeworkAfterEnrolmentChange);
 
-        $this->clock->setTime(new DateTimeImmutable('2025-06-10 00:00:00 UTC'));
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("10/06/2025 00:00:00.000"));
         $this->expectException(EnrollmentException::class);
         $homeworkAfterEnrolmentChange = $this->course->getHomeworkForStudent($this->student->getId(), $this->homeworkTitle);
         $this->assertNull($homeworkAfterEnrolmentChange);
