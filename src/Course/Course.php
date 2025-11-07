@@ -54,9 +54,7 @@ class Course extends TimedContent{
     }
 
     public function getPrepMaterialForStudent(int $studentId, string $prepMaterialTitle): PrepMaterial {
-        if (!$this->studentIsCurrentlyEnrolled($studentId)) {
-            throw new EnrollmentException("Student is not currently enrolled.");
-        }
+        $this->validateStudentEnrolment($studentId);
         $now = $this->clock->now();
         if ($now < $this->startDate) {
             throw new InvalidAccessTimeException("Cannot access prep material before course has started.");
@@ -68,9 +66,7 @@ class Course extends TimedContent{
     }
 
     public function getLessonForStudent(int $studentId, string $lessonTitle): Lesson {
-        if (!$this->studentIsCurrentlyEnrolled($studentId)) {
-            throw new EnrollmentException("Student is not currently enrolled.");
-        }
+        $this->validateStudentEnrolment($studentId);
         $courseContainsLesson = array_key_exists($lessonTitle, $this->lessons);
         if (!$courseContainsLesson) {
             throw new ContentDoesNotExistException("Lesson does not exist in course.");
@@ -83,9 +79,7 @@ class Course extends TimedContent{
     }
 
     public function getHomeworkForStudent(int $studentId, string $homeworkTitle): Homework {
-        if (!$this->studentIsCurrentlyEnrolled($studentId)) {
-            throw new EnrollmentException("Student is not currently enrolled.");
-        }
+        $this->validateStudentEnrolment($studentId);
         if (!$this->isActive()) {
             throw new InvalidAccessTimeException("Cannot access homework before course has started.");
         }
@@ -95,9 +89,15 @@ class Course extends TimedContent{
         return $this->homeworks[$homeworkTitle];
     }
 
+    private function validateStudentEnrolment(int $studentId): void {
+        if (!$this->studentIsCurrentlyEnrolled($studentId)) {
+            throw new EnrollmentException("Student is not currently enrolled.");
+        }
+    }
+
     private function studentIsCurrentlyEnrolled(int $studentId): bool {
-        $studentIsCurrentlyEnrolled = array_key_exists($studentId, $this->enrolments);
-        if ($studentIsCurrentlyEnrolled) {
+        $studentIsEnrolled = array_key_exists($studentId, $this->enrolments);
+        if ($studentIsEnrolled) {
             $studentEnrolment = $this->enrolments[$studentId];
             $enrollmentPeriodIsActive = $studentEnrolment->isActive();
             if ($enrollmentPeriodIsActive) {

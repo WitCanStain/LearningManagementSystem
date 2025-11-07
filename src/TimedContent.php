@@ -24,14 +24,6 @@ abstract class TimedContent {
         return true;
     }
 
-    public function getStartDate(): DateTimeImmutable {
-        return $this->startDate;
-    }
-
-    public function getEndDate(): DateTimeImmutable {
-        return $this->endDate;
-    }
-
     public function setEndDate(DateTimeImmutable $endDate): void {
         $this->endDate = $endDate;
     }

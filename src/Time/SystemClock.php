@@ -4,9 +4,10 @@ namespace App\Time;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use App\Time\TimeConfig;
 
 class SystemClock implements Clock {
     public function now(): DateTimeImmutable {
-        return new DateTimeImmutable("now", new DateTimeZone("UTC"));
+        return new DateTimeImmutable("now", new DateTimeZone(TimeConfig::DEFAULT_TIMEZONE));
     }
 }

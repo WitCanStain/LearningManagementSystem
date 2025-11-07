@@ -10,9 +10,13 @@ use App\Time\FakeClock;
 use App\Time\FormattedDateTime;
 use App\Course\Exception\ContentDoesNotExistException;
 use App\Course\Exception\ContentAlreadyExistsException;
+use App\Course\Exception\ConstructorException;
 use App\Course\Exception\InvalidAccessTimeException;
 use App\Course\Exception\EnrollmentException;
 
+/**
+ * @coversNothing
+ */
 final class CourseTest extends TestCase {
 
     private Course $course;
@@ -86,8 +90,6 @@ final class CourseTest extends TestCase {
         $this->course->enroll($this->enrolment);
     }
 
-    
-
     public function testCreatingACourseWithoutEndDateCreatesInstance(): void {
         $courseStartDateTimeString = "01/05/2025 00:00:00.000";
         $courseStartDate = FormattedDateTime::getDateFromDateTimeString($courseStartDateTimeString);
@@ -97,6 +99,30 @@ final class CourseTest extends TestCase {
         $courseWithoutEndDate = new Course($this->courseName, array($this->lesson), array($this->homework), array(), $courseStartDate, null, $clock);
 
         $this->assertTrue($courseWithoutEndDate instanceof Course);
+    }
+
+    public function testCreatingACourseWithoutLessonsCausesException(): void {
+        $courseStartDateTimeString = "01/05/2025 00:00:00.000";
+        $courseStartDate = FormattedDateTime::getDateFromDateTimeString($courseStartDateTimeString);
+        $clock = new FakeClock($courseStartDate);
+        $courseStartDateString = "13/05/2025";
+        $courseStartDate = FormattedDateTime::getDayStartTimeFromDayMonthYearString($courseStartDateString);
+
+        $this->expectException(ConstructorException::class);
+
+        $courseWithoutLessons = new Course($this->courseName, array(), array($this->homework), array(), $courseStartDate, null, $clock);
+    }
+
+    public function testCreatingACourseWithoutHomeworkssCausesException(): void {
+        $courseStartDateTimeString = "01/05/2025 00:00:00.000";
+        $courseStartDate = FormattedDateTime::getDateFromDateTimeString($courseStartDateTimeString);
+        $clock = new FakeClock($courseStartDate);
+        $courseStartDateString = "13/05/2025";
+        $courseStartDate = FormattedDateTime::getDayStartTimeFromDayMonthYearString($courseStartDateString);
+
+        $this->expectException(ConstructorException::class);
+
+        $courseWithoutHomeworks = new Course($this->courseName, array($this->lesson), array(), array(), $courseStartDate, null, $clock);
     }
 
     public function testStudentCannotAccessPrepMaterialBeforeCourseStart(): void {
@@ -138,7 +164,14 @@ final class CourseTest extends TestCase {
     public function testStudentCannotAccessPrepMaterialWhenNotEnrolled(): void {
         $this->expectException(EnrollmentException::class);
 
-        $prepMaterial = $this->course->getPrepMaterialForStudent($this->student->getId(), $this->prepMaterialName); 
+        $prepMaterial = $this->course->getPrepMaterialForStudent($this->student->getId(), $this->prepMaterialName);
+    }
+
+    public function testAccessingInexistentPrepMaterialCausesException(): void {
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("15/05/2025 10:01:00.000"));
+        $this->course->enroll($this->enrolment);
+        $this->expectException(ContentDoesNotExistException::class);
+        $prepMaterial = $this->course->getPrepMaterialForStudent($this->student->getId(), "Inexistent prep material title");
     }
 
     public function testStudentCanAccessLessonAfterLessonStart(): void {
@@ -173,6 +206,13 @@ final class CourseTest extends TestCase {
         $lesson = $this->course->getLessonForStudent($this->student->getId(), $this->lessonTitle);
     }
 
+    public function testAccessingInexistentLessonCausesException(): void {
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("15/05/2025 10:01:00.000"));
+        $this->course->enroll($this->enrolment);
+        $this->expectException(ContentDoesNotExistException::class);
+        $lesson = $this->course->getLessonForStudent($this->student->getId(), "Inexistent lesson title");
+    }
+
     public function testStudentCannotAccesshomeworkBeforeCourseStart(): void {
         $this->expectException(InvalidAccessTimeException::class);
 
@@ -201,6 +241,13 @@ final class CourseTest extends TestCase {
         $this->expectException(EnrollmentException::class);
 
         $homework = $this->course->getHomeworkForStudent($this->student->getId(), $this->homeworkTitle); 
+    }
+
+    public function testAccessingInexistentHomeworkCausesException(): void {
+        $this->clock->setTime(FormattedDateTime::getDateFromDateTimeString("15/05/2025 10:01:00.000"));
+        $this->course->enroll($this->enrolment);
+        $this->expectException(ContentDoesNotExistException::class);
+        $homework = $this->course->getHomeworkForStudent($this->student->getId(), "Inexistent homework title");
     }
 
     public function testStudentCannotAccessHomeworkAfterEnrolmentEnded(): void {

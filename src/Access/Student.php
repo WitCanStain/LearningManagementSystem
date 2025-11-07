@@ -15,8 +15,4 @@ class Student {
     function getId(): int {
         return $this->id;
     }
-
-    function getName(): string {
-        return $this->name;
-    }
 }
